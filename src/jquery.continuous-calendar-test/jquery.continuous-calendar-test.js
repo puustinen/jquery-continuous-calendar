@@ -7,8 +7,9 @@ test("module init", function() {
   createCalendarFromJanuary();
 });
 
+
 test("shows year", function() {
-  assertHasValues(".continuousCalendar thead th.month", ["2009"]);
+  assertHasValues(".continuousCalendar thead th.month", [Date.NOW.getFullYear()]);
 });
 
 test("shows week days", function() {
@@ -64,10 +65,9 @@ test("lists given number of weeks after given date", function() {
 
 test("if start date not selected show around current day instead", function() {
   createCalendarFields().continuousCalendar({weeksBefore: 0,weeksAfter: 0});
-  var today = new Date();
   equals(cal().find(".date").size(), 7);
   var weekDays = [];
-  var firstDay = today.getFirstDateOfWeek(Date.SUNDAY);
+  var firstDay = Date.NOW.getFirstDateOfWeek(Date.SUNDAY);
   for (var i = 0; i < 7; i++) {
     weekDays.push(firstDay.plusDays(i).getDate());
   }
@@ -126,8 +126,7 @@ test("highlights and selects clicked day", function() {
 test("week number click selects whole week", function () {
   createRangeCalendarWithFiveWeeks();
   var weekNumber = cal().find(".week").withText(18);
-  mouseEvent("mousedown", weekNumber);
-  mouseEvent("mouseup", weekNumber);
+  mouseClick(weekNumber);
   assertHasValues(".selected", [3,4,5,6,7,8,9]);
   equals(startFieldValue(), "5/3/2009");
   equals(endFieldValue(), "5/9/2009");
@@ -136,11 +135,7 @@ test("week number click selects whole week", function () {
 
 test("mouse click and drag highlights range and updates fields", function() {
   createRangeCalendarWithFiveWeeks();
-  mouseDownOnDay(27);
-  mouseMoveOnDay(27);
-  mouseMoveOnDay(28);
-  mouseMoveOnDay(29);
-  mouseUpOnDay(29);
+  dragDates(27, 29);
   equals(cal().find(".selected").size(), 3);
   equals(startFieldValue(), "4/27/2009");
   equals(endFieldValue(), "4/29/2009");
@@ -149,10 +144,7 @@ test("mouse click and drag highlights range and updates fields", function() {
 
 test("mouse click and drag works with no initial selection", function() {
   createCalendarFields({startDate: "", endDate: ""}).continuousCalendar({weeksBefore:3,weeksAfter:3});
-  mouseDownOnDay(22);
-  mouseMoveOnDay(22);
-  mouseMoveOnDay(23);
-  mouseUpOnDay(23);
+  dragDates(22, 23);
   equals(cal().find(".selected").size(), 2);
   equals(cal().find("em span").text(), "2 Days");
 });
@@ -160,8 +152,7 @@ test("mouse click and drag works with no initial selection", function() {
 test("mouse click on month on range calendar selects whole month", function() {
   createBigCalendar();
   var monthName = cal().find(".month").withText("May");
-  mouseEvent("mousedown", monthName);
-  mouseEvent("mouseup", monthName);
+  mouseClick(monthName);
   equals(cal().find(".selected").size(), 31);
   equals(startFieldValue(), "5/1/2009");
   equals(endFieldValue(), "5/31/2009");
@@ -177,17 +168,11 @@ test("mouse click on month in singe date calendar does nothing", function() {
 
 test("range is movable", function() {
   createRangeCalendarWithFiveWeeks();
-  mouseDownOnDay(30);
-  mouseMoveOnDay(29);
-  mouseMoveOnDay(28);
-  mouseMoveOnDay(27);
-  mouseUpOnDay(27);
+  dragDates(30, 27);
   assertHasValues(".selected", [26,27,28,29,30,1,2]);
   equals(startFieldValue(), "4/26/2009");
   equals(endFieldValue(), "5/2/2009");
-  mouseDownOnDay(28);
-  mouseMoveOnDay(29);
-  mouseUpOnDay(29);
+  dragDates(28, 29);
   assertHasValues(".selected", [27,28,29,30,1,2,3]);
   equals(startFieldValue(), "4/27/2009");
   equals(startLabelValue(), "Mon 4/27/2009");
@@ -196,9 +181,9 @@ test("range is movable", function() {
 
 test("range is expandable by clicking with shift key", function() {
   createRangeCalendarWithFiveWeeks();
-  clickWithShiftOnDay(7);
+  clickDateWithShift(7);
   assertHasValues(".selected", [ 29, 30, 1, 2, 3, 4, 5, 6, 7]);
-  clickWithShiftOnDay(13);
+  clickDateWithShift(13);
   assertHasValues(".selected", [ 29, 30, 1, 2, 3, 4, 5, 6, 7]);
   equals(cal().find(".disabled").size(), 7, "disabled");
   //4/15/2009",lastDate:"5/12/2009
@@ -210,11 +195,10 @@ test("range has default of on year per direction", function() {
 });
 
 test("highlights current date", function() {
-  var today = new Date();
   createBigCalendar();
   var cells = cal().find(".today");
   equals(cells.size(), 1);
-  equals(cells.text(), today.getDate());
+  equals(cells.text(), Date.NOW.getDate());
 });
 
 test("range has current day selected as default when configured so", function() {
@@ -239,9 +223,7 @@ test("calendar executes callback-function and triggers event when range is creat
     window.calendarChanged = $(this).find('.selected').length;
   });
   equals(window.calendarCallBack, 0);
-  mouseDownOnDay(28);
-  mouseMoveOnDay(29);
-  mouseUpOnDay(29);
+  dragDates(28, 29);
   equals(window.calendarCallBack, 2);
   equals(window.calendarContainer.find('.selected').length, 2);
   equals(window.calendarChanged, 2);
@@ -268,29 +250,22 @@ test("month and day names are localizable", function() {
     "lokakuu",
     "marraskuu",
     "joulukuu"]);
-  mouseDownOnDay(1);
-  mouseUpOnDay(1);
+  clickDate(1);
   equals(startFieldValue(), "1.1.2009");
   equals(startLabelValue(), "To 1.1.2009");
 });
 
 test("forward drag after one day selection expands selection", function() {
   createRangeCalendarWithFiveWeeks();
-  mouseDownAndUpOnDay(16);
+  clickDate(16);
   assertHasValues('.selected',[16]);
 
-  mouseDownOnDay(16);
-  mouseMoveOnDay(17);
-  mouseMoveOnDay(18);
-  mouseUpOnDay(18);
+  dragDates(16, 18);
   assertHasValues('.selected',[16,17,18]);
 
-  mouseDownAndUpOnDay(19);
+  clickDate(19);
   assertHasValues('.selected', [19]);
-  mouseDownOnDay(19);
-  mouseMoveOnDay(18);
-  mouseMoveOnDay(17);
-  mouseUpOnDay(17);
+  dragDates(19,17);
   assertHasValues('.selected', [17,18,19]);
 });
 
@@ -336,7 +311,7 @@ function createCalendarFields(params) {
 }
 
 function mouseClick(selector) {
-  var targetElement = cal().find(selector);
+  var targetElement = (typeof selector == 'object')? selector : cal().find(selector);
   mouseEvent('mousedown', targetElement);
   mouseEvent('mouseup', targetElement);
 }
@@ -346,15 +321,20 @@ function mouseEvent(eventType, elements, options) {
   cal().find('.calendarBody').callEvent(eventType, event);
 }
 
-function clickWithShiftOnDay(date) {
+function clickDateWithShift(date) {
   var options = {shiftKey:true};
   mouseDownOnDay(date, options);
   mouseUpOnDay(date, options);
 }
 
-function mouseDownAndUpOnDay(date) {
+function clickDate(date) {
   mouseDownOnDay(date);
   mouseUpOnDay(date);
+}
+
+function dragDates(enter, exit) {
+  mouseDownOnDay(enter);
+  mouseUpOnDay(exit);
 }
 
 function createCalendarWithOneWeek() {
@@ -366,7 +346,7 @@ function createRangeCalendarWithFiveWeeks() {
 }
 
 function createBigCalendar() {
-  var todayText = new Date().dateFormat(DATE_LOCALE_EN.shortDateFormat);
+  var todayText = Date.NOW.dateFormat(DATE_LOCALE_EN.shortDateFormat);
   createCalendarFields({startDate: todayText, endDate: todayText }).continuousCalendar({weeksBefore: 60,weeksAfter: 30});
 }
 
@@ -381,7 +361,10 @@ function createCalendarFromJanuary() {
 function mouseEventOnDay(eventType, date, options) {mouseEvent(eventType, cal().find(".date").withText(date), options);}
 function mouseDownOnDay(date) { mouseEventOnDay("mousedown", date, arguments[1]);}
 function mouseMoveOnDay(date) {mouseEventOnDay("mouseover", date);}
-function mouseUpOnDay(date, options) {mouseEventOnDay("mouseup", date, options);}
+function mouseUpOnDay(date, options) {
+  mouseEventOnDay("mouseover", date, options);
+  mouseEventOnDay("mouseup", date, options);
+}
 function calendarId() {return "continuousCalendar" + testIndex;}
 function startFieldValue() {return cal().find("input.startDate").val();}
 function startLabelValue() {return cal().find("span.startDateLabel").text();}
