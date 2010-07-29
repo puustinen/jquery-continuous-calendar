@@ -44,6 +44,9 @@
     var calendarRange;
     var status = Status.NONE;
     var calendar;
+    var scrollContent;
+    var beforeFirstOpening = true;
+    var bodyTable;
 
     createCalendar();
     container.trigger('calendarChange');
@@ -60,14 +63,17 @@
       calendarRange = new DateRange(rangeStart, rangeEnd);
 
       var headerTable = $('<table>').addClass('calendarHeader').append(headerRow());
-      var bodyTable = $('<table>').addClass('calendarBody').append(calendarBody());
-      var scrollContent = $('<div>').addClass('calendarScrollContent').append(bodyTable);
+      bodyTable = $('<table>').addClass('calendarBody').append(calendarBody());
+      scrollContent = $('<div>').addClass('calendarScrollContent').append(bodyTable);
       calendar = getCalendarContainerOrCreateOne();
       calendar.append(headerTable).append(scrollContent);
-      if (params.isPopup) {
-        calendar.addClass('popup');
+      if(params.isPopup) {
+        isHidden = true;
+        calendar.addClass('popup').hide();
         var icon = $('<a href="#" class="calendarIcon"><span>calendar</span></a>').click(toggleCalendar);
         container.append(icon);
+      } else {
+        calculateCellHeightAndSetScroll();
       }
 
       if (container.find('.startDateLabel').isEmpty()) {
@@ -83,10 +89,9 @@
       } else {
         initSingleDateCalendarEvents();
       }
-      averageCellHeight = parseInt(bodyTable.height() / bodyTable.find('tr').size());
       yearTitle = headerTable.find('th.month');
-      setScrollBehaviors(scrollContent);
-      if (params.isPopup) calendar.hide();
+      scrollContent.scroll(setYearLabel);
+      scrollToSelection();
       params.callback.call(container, selection);
     }
 
@@ -108,6 +113,7 @@
         dateLabelContainer.append('<span class="separator"> - </span>').append('<span class="endDateLabel"></span>');
       }
       container.append(dateLabelContainer);
+      dateLabelContainer.click(toggleCalendar);
     }
 
     function initRangeCalendarEvents(container, bodyTable) {
@@ -121,18 +127,15 @@
       setRangeLabels();
     }
 
-    function setScrollBehaviors(scrollContent) {
-      scrollContent.scroll(function() {
-        setYearLabel(this);
-      });
-
-      var selected = scrollContent.find('.today, .selected').get(0);
-      if (selected) {
-        scrollContent.scrollTop(selected.offsetTop - (scrollContent.height() - selected.offsetHeight) / 2);
+    function scrollToSelection() {
+      var selectionStartOrToday = scrollContent.find('.selected, .today').get(0);
+      if (selectionStartOrToday) {
+        scrollContent.scrollTop(selectionStartOrToday.offsetTop - (scrollContent.height() - selectionStartOrToday.offsetHeight) / 2);
       }
     }
 
-    function setYearLabel(scrollContent) {
+    function setYearLabel() {
+      var scrollContent = this;
       var table = $(scrollContent).find('table').get(0);
       var rowNumber = parseInt(scrollContent.scrollTop / averageCellHeight);
       var date = table.rows[rowNumber].cells[2].date;
@@ -159,8 +162,17 @@
       }
     }
 
+    function calculateCellHeightAndSetScroll() {
+      averageCellHeight = parseInt(bodyTable.height() / bodyTable.find('tr').size());
+      scrollToSelection();
+    }
+
     function toggleCalendar() {
       calendar.toggle();
+      if(beforeFirstOpening) {
+        calculateCellHeightAndSetScroll();
+        beforeFirstOpening = false;
+      }
       return false;
     }
 
@@ -314,10 +326,13 @@
     }
 
     function setRangeLabels() {
-      if (selection.start && selection.end) {
+       if (selection.start && selection.end) {
         var format = params.locale.weekDateFormat;
         container.find('span.startDateLabel').text(selection.start.dateFormat(format));
         container.find('span.endDateLabel').text(selection.end.dateFormat(format));
+        container.find('span.separator').show();
+      } else {
+        container.find('span.separator').hide();
       }
     }
 
@@ -389,7 +404,7 @@ function DateRange(date1, date2) {
       return Math.round(this.start.distanceInDays(this.end) + 1);
     }
   };
-  
+
   this.shiftDays = function(days) {
     this.start = this.start.plusDays(days);
     this.end = this.end.plusDays(days);
