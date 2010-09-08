@@ -421,10 +421,11 @@ function DateRange(date1, date2) {
   var days;
   var hours;
   var minutes;
+  var valid = true;
   this.hours = function() {return hours;};
   this.minutes = function() {return minutes;};
   this.hasDate = function(date) {return date.isBetweenDates(this.start, this.end);};
-  this.isValid = function() {return this.end.getTime() - this.start.getTime() >= 0;};
+  this.isValid = function() {return valid &&  this.end.getTime() - this.start.getTime() >= 0;};
   this.days = function() {
     if (hasTimes) {
       return days;
@@ -455,10 +456,18 @@ function DateRange(date1, date2) {
     }
   };
   this.setTimes = function(startTimeStr, endTimeStr) {
-    this.start = dateWithTime(this.start, startTimeStr);
-    this.end = dateWithTime(this.end, endTimeStr);
-    hasTimes = true;
-    setDaysHoursAndMinutes.call(this);
+    var parsedStartTime = Date.parseTime(startTimeStr);
+    var parsedEndTime = Date.parseTime(endTimeStr);
+    if (parsedStartTime && parsedEndTime) {
+      valid = true;
+      hasTimes = true;
+      this.start = dateWithTime(this.start, parsedStartTime);
+      this.end = dateWithTime(this.end, parsedEndTime);
+      setDaysHoursAndMinutes.call(this);
+    } else {
+      valid = false;
+    }
+    return valid;
   };
   function setDaysHoursAndMinutes() {
     if (hasTimes) {
@@ -471,19 +480,12 @@ function DateRange(date1, date2) {
     }
   }
 
-  function dateWithTime(dateWithoutTime, timeStr) {
-    var parsedTime = parseTime(timeStr);
+  function dateWithTime(dateWithoutTime, parsedTime) {
     var date = dateWithoutTime.clone();
-    date.setHours(parsedTime.get(0));
-    date.setMinutes(parsedTime.get(1));
+    date.setHours(parsedTime[0]);
+    date.setMinutes(parsedTime[1]);
     date.setMilliseconds(0);
     return date;
-  }
-
-  function parseTime(timeStr) {
-    return $(timeStr.split(':')).map(function() {
-      return parseInt(this);
-    });
   }
 
   this.toString = function(locale) {
@@ -503,7 +505,6 @@ DateRange.emptyRange = function() {
     this.shiftDays = function() {};
     this.hasDate = function() {return false;};
   }
-
   return new NullDateRange();
 };
 DateRange.parse = function(dateStr1, dateStr2, dateFormat) {

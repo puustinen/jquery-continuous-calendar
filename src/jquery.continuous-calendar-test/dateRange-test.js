@@ -15,6 +15,7 @@ test("creates dange of three days", function() {
   ok(range.hasDate(new Date('09/11/2009')));
   ok(range.hasDate(new Date('09/12/2009')));
   ok(!range.hasDate(new Date('09/13/2009')));
+  equals(range.toString(DATE_LOCALE_FI), "10.9.2009 - 12.9.2009");
 });
 
 test("range is movable", function() {
@@ -73,6 +74,49 @@ test("one day range with start time after end time is not valid", function() {
   ok(range.isValid());
 });
 
+test("invalid time will make range invalid while keeping date information", function() {
+  range.setTimes('15:00', '15:30');
+  ok(range.isValid());
+
+  range.setTimes('', '15:30');
+  ok(!range.isValid());
+
+  range.setTimes('15:00', '15:30');
+  ok(range.isValid());
+
+  range.setTimes('asdf', 'fddd');
+  ok(!range.isValid());
+  
+});
+
+test("different time formats are accepted", function() {
+  range.setTimes('15:00', '16:10');
+  assertHasCorrectHoursAndMinutes(1, 10);
+
+  range.setTimes('14.00', '16.20');
+  assertHasCorrectHoursAndMinutes(2, 20);
+
+  range.setTimes('13,00', '16,30');
+  assertHasCorrectHoursAndMinutes(3, 30);
+
+  range.setTimes('1200', '1640');
+  assertHasCorrectHoursAndMinutes(4, 40);
+
+  range.setTimes('830', '1240');
+  assertHasCorrectHoursAndMinutes(4, 10);
+
+  range.setTimes('10', '13');
+  assertHasCorrectHoursAndMinutes(3, 0);
+
+
+
+});
+
+function assertHasCorrectHoursAndMinutes(hours, minutes) {
+  ok(range.isValid(),"valid range");
+  equals(range.hours(), hours, "correct hours");
+  equals(range.minutes(), minutes, "correct minutes");
+}
 function resetRange() {
   start = new Date('09/10/2009');
   end = new Date('09/12/2009');
