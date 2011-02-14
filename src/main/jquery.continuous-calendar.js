@@ -8,11 +8,14 @@
       var defaults = {
         weeksBefore: 26,
         weeksAfter: 26,
+        firstDate: null,
+        lastDate: null,
         startField: this.find('input.startDate'),
         endField: this.find('input.endDate'),
         isPopup: false,
         selectToday: false,
         locale: DATE_LOCALE_EN,
+        disableWeekends: false,
         callback: function() {
         }
       };
@@ -35,30 +38,30 @@
       }
       var firstWeekdayOfGivenDate = (startDate || Date.NOW).getFirstDateOfWeek(params.locale.firstWeekday);
       var container = this;
-      var dateCells = null;
-      var dateCellDates = null;
-      var moveStartDate = null;
+      var dateCells = [];
+      var dateCellDates = [];
+      var dateCellMap = {}
       var mouseDownDate = null;
       var averageCellHeight;
       var yearTitle;
-      var selection;
+      var selection = DateRange.emptyRange();
+      var oldSelection;
       var calendarRange;
       var status = Status.NONE;
       var calendar;
       var scrollContent;
       var beforeFirstOpening = true;
       var bodyTable;
+
       createCalendar();
-      container.trigger('calendarChange');
       function createCalendar() {
         if (startDate && endDate) {
           selection = new DateRange(startDate, endDate);
-        } else {
-          selection = DateRange.emptyRange();
         }
+        oldSelection = selection.clone()
         container.data('calendarRange', selection);
-        var rangeStart = 'firstDate' in params ? Date.parseDate(params.firstDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(-(params.weeksBefore * 7));
-        var rangeEnd = 'lastDate' in params ? Date.parseDate(params.lastDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(params.weeksAfter * 7 + 6);
+        var rangeStart = params.firstDate ? Date.parseDate(params.firstDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(-(params.weeksBefore * 7));
+        var rangeEnd = params.lastDate ? Date.parseDate(params.lastDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(params.weeksAfter * 7 + 6);
         calendarRange = new DateRange(rangeStart, rangeEnd);
         var headerTable = $('<table>').addClass('calendarHeader').append(headerRow());
         bodyTable = $('<table>').addClass('calendarBody').append(calendarBody());
@@ -79,19 +82,28 @@
         if (container.find('.rangeLengthLabel').isEmpty() && isRange()) {
           addRangeLengthLabel(container);
         }
-        dateCells = container.find('.date');
-        dateCellDates = dateCells.map(function() {
-          return this.date;
-        });
+        highlightToday();
         if (isRange()) {
           initRangeCalendarEvents(container, bodyTable);
+          drawSelection()
         } else {
           initSingleDateCalendarEvents();
+          var selectedDateKey = startDate && startDate.dateFormat('Ymd')
+          if (dateCellMap[selectedDateKey]) {
+            dateCells[dateCellMap[selectedDateKey]].addClass('selected')
+          }
         }
         yearTitle = headerTable.find('th.month');
         scrollContent.scroll(setYearLabel);
         scrollToSelection();
-        params.callback.call(container, selection);
+        executeCallback()
+      }
+
+      function highlightToday() {
+        var todayKey = Date.NOW.dateFormat('Ymd');
+        if (dateCellMap[todayKey]) {
+          dateCells[dateCellMap[todayKey]].addClass('today')
+        }
       }
 
       function getCalendarContainerOrCreateOne() {
@@ -195,19 +207,18 @@
         var tr = $('<tr>').append(monthCell(firstDayOfWeek)).append(weekCell(firstDayOfWeek));
         for (var i = 0; i < 7; i++) {
           var date = firstDayOfWeek.plusDays(i);
-          var dateCell = $('<td>').addClass(dateStyles(date)).append(date.getDate());
-          dateCell.get(0).date = date;
-          if (date.isToday()) {
-            dateCell.addClass('today');
-          }
-          if (isRange()) {
-            dateCell.toggleClass('selected', selection.hasDate(date)).toggleClass('rangeStart', date.equalsOnlyDate(selection.start)).toggleClass('rangeEnd', date.equalsOnlyDate(selection.end));
-          } else {
-            dateCell.toggleClass('selected', date.equalsOnlyDate(startDate));
-          }
-          tr.append(dateCell);
+          tr.append(dateCell(date));
         }
         return tr;
+      }
+
+      function dateCell(date) {
+        var dateCell = $('<td>').addClass(dateStyles(date)).append(date.getDate());
+        dateCell.get(0).date = date;
+        dateCellMap[date.dateFormat('Ymd')] = dateCells.length
+        dateCells.push(dateCell)
+        dateCellDates.push(date)
+        return dateCell;
       }
 
       function monthCell(firstDayOfWeek) {
@@ -230,61 +241,82 @@
 
       function backgroundBy(date) {return date.isOddMonth() ? 'odd' : '';}
 
-      function disabledOrNot(date) {return calendarRange.hasDate(date) ? '' : 'disabled';}
+      function disabledOrNot(date) {
+        var disabledWeekendDay = params.disableWeekends && date.isWeekend();
+        var outOfBounds = !calendarRange.hasDate(date);
+        return outOfBounds || disabledWeekendDay ? 'disabled': '';
+      }
 
       function todayStyle(date) {return date.isToday() ? 'today' : '';}
 
       function initSingleDateCalendarEvents() {
-        dateCells.click(function() {
-          dateCells.removeClass('selected');
+        $('.date', container).bind('click', function() {
           var dateCell = $(this);
+          if (dateCell.hasClass('disabled')) return;
+          $('td.selected', container).removeClass('selected');
           dateCell.addClass('selected');
-          var formattedDate = date(dateCell).dateFormat(params.locale.shortDateFormat);
-          params.startField.val(formattedDate);
-          setDateLabel(formattedDate);
+          params.startField.val(date(dateCell).dateFormat(params.locale.shortDateFormat));
+          setDateLabel(date(dateCell).dateFormat(params.locale.weekDateFormat));
           if (params.isPopup) {
             toggleCalendar.call(this);
           }
+          executeCallback();
         });
-        setDateLabel(params.startField.val());
+
+        if (params.startField.val()) {
+          setDateLabel(Date.parseDate(params.startField.val(), params.locale.shortDateFormat).dateFormat(params.locale.weekDateFormat));
+        }
+      }
+
+      function startNewRange() {
+        selection = new DateRange(mouseDownDate, mouseDownDate);
       }
 
       function mouseDown(event) {
         var elem = event.target;
-        if (isDateCell(elem) && isEnabled(elem)) {
+
+        if(isInstantSelection(event)) {
+          selection = instantSelection(event)
+          return
+        }
+
+        if (enabledCell(elem)) {
           status = Status.CREATE;
           mouseDownDate = elem.date;
           if (mouseDownDate.equalsOnlyDate(selection.end)) {
             mouseDownDate = selection.start;
-          } else {
-            if (mouseDownDate.equalsOnlyDate(selection.start)) {
-              mouseDownDate = selection.end;
-            } else {
-              if (selection.hasDate(mouseDownDate)) {
-                status = Status.MOVE;
-                moveStartDate = mouseDownDate;
-              } else {
-                if (event.shiftKey) {
-                  status = Status.NONE;
-                  selection.expandTo(mouseDownDate);
-                } else {
-                  selection = new DateRange(mouseDownDate, mouseDownDate);
-                }
-              }
-            }
+            return
           }
-        } else {
+          if (mouseDownDate.equalsOnlyDate(selection.start)) {
+            mouseDownDate = selection.end;
+            return
+          }
+          if (selection.hasDate(mouseDownDate)) {
+            status = Status.MOVE;
+            return
+          }
+          startNewRange();
+        }
+        function enabledCell(elem) { return isDateCell(elem) && isEnabled(elem); }
+        function isInstantSelection(event) { return isWeekCell(event.target) || isMonthCell(event.target) || event.shiftKey }
+        function instantSelection(event) {
+          var elem = event.target
           if (isWeekCell(elem)) {
             status = Status.NONE;
             var dayInWeek = date($(elem).siblings('.date'));
-            selection = new DateRange(dayInWeek, dayInWeek.plusDays(6));
-          } else {
-            if (isMonthCell(elem)) {
+            return new DateRange(dayInWeek, dayInWeek.plusDays(6));
+          } else if (isMonthCell(elem)) {
+            status = Status.NONE;
+            var dayInMonth = date($(elem).siblings('.date'));
+            return new DateRange(dayInMonth.firstDateOfMonth(), dayInMonth.lastDateOfMonth());
+          } else if (event.shiftKey) {
+            if (selection.days() > 0 && enabledCell(elem)) {
               status = Status.NONE;
-              var dayInMonth = date($(elem).siblings('.date'));
-              selection = new DateRange(dayInMonth.firstDateOfMonth(), dayInMonth.lastDateOfMonth());
+              selection.expandTo(elem.date);
+              return selection
             }
           }
+          return selection
         }
       }
 
@@ -296,8 +328,8 @@
         if (isEnabled(event.target)) {
           switch (status) {
             case Status.MOVE:
-              var deltaDays = moveStartDate.distanceInDays(date);
-              moveStartDate = date;
+              var deltaDays = mouseDownDate.distanceInDays(date);
+              mouseDownDate = date;
               selection.shiftDays(deltaDays);
               selection = selection.and(calendarRange);
               break;
@@ -311,32 +343,47 @@
 
       function mouseUp() {
         status = Status.NONE;
-        drawSelection();
+        drawSelection()
         afterSelection();
       }
 
       function drawSelection() {
-        drawSelectionBetweenDates(selection.start, selection.end);
+        drawSelectionBetweenDates(selection);
         container.find('span.rangeLengthLabel').text(Date.daysLabel(selection.days()));
       }
 
-      function drawSelectionBetweenDates(start, end) {
-        dateCells.each(function(i, elem) {
-          var date = dateCellDates[i];
-          var styleClass = [dateStyles(date)];
-          if (date.equalsOnlyDate(end)) {
-            styleClass.push('selected rangeEnd');
+      function drawSelectionBetweenDates(range) {
+        container.find('td.selected').removeClass('selected').removeClass('rangeStart').removeClass('rangeEnd')
+        //iterateAndToggleCells(oldSelection.start, oldSelection.end);
+        iterateAndToggleCells(range);
+        oldSelection = range.clone();
+      }
+
+      function iterateAndToggleCells(range) {
+        if(range.days() == 0) return
+        var startIndex = dateCellMap[range.start.dateFormat('Ymd')]
+        var endIndex = dateCellMap[range.end.dateFormat('Ymd')]
+        for (var i = startIndex; i <= endIndex; i++) {
+          setDateCellStyle(i, range.start, range.end);
+        }
+      }
+
+      function setDateCellStyle(i, start, end) {
+        var date = dateCellDates[i];
+        var elem = dateCells[i].get(0)
+        var styleClass = [dateStyles(date)];
+        if (date.equalsOnlyDate(end)) {
+          styleClass.push('selected rangeEnd');
+        } else {
+          if (date.equalsOnlyDate(start)) {
+            styleClass.push('selected rangeStart');
           } else {
-            if (date.equalsOnlyDate(start)) {
-              styleClass.push('selected rangeStart');
-            } else {
-              if (date.isBetweenDates(start, end)) {
-                styleClass.push('selected');
-              }
+            if (date.isBetweenDates(start, end)) {
+              styleClass.push('selected');
             }
           }
-          elem.className = styleClass.join(' ');
-        });
+        }
+        elem.className = styleClass.join(' ');
       }
 
       function afterSelection() {
@@ -346,8 +393,7 @@
         setStartField(formattedStart);
         setEndField(formattedEnd);
         setRangeLabels();
-        params.callback.call(container, selection);
-        container.trigger('calendarChange');
+        executeCallback();
       }
 
       function setRangeLabels() {
@@ -383,6 +429,11 @@
             });
           }
         }
+      }
+
+      function executeCallback() {
+        params.callback.call(container, selection);
+        container.trigger('calendarChange', selection);
       }
 
       function isDateCell(elem) {return $(elem).hasClass('date');}
