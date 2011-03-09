@@ -31,12 +31,13 @@
         selectToday: false,
         locale: DATE_LOCALE_EN,
         disableWeekends: false,
+        minimumRange:-1,
         callback: function() {
         }
       }
       var params = $.extend(defaults, options)
       var Status = {
-        CREATE:'create',
+        CREATE_OR_RESIZE:'create',
         MOVE:'move',
         NONE:'none'
       }
@@ -298,28 +299,31 @@
       function mouseDown(event) {
         var elem = event.target
 
-        if (isInstantSelection(event)) {
+        if(isInstantSelection(event)) {
           selection = instantSelection(event)
           return
         }
 
-        if (enabledCell(elem)) {
-          status = Status.CREATE
-          mouseDownDate = elem.date
-          if (mouseDownDate.equalsOnlyDate(selection.end)) {
-            mouseDownDate = selection.start
-            return
-          }
-          if (mouseDownDate.equalsOnlyDate(selection.start)) {
-            mouseDownDate = selection.end
-            return
-          }
-          if (selection.hasDate(mouseDownDate)) {
-            status = Status.MOVE
-            return
-          }
+        status = Status.CREATE_OR_RESIZE
+        mouseDownDate = elem.date
+
+        if(mouseDownDate.equalsOnlyDate(selection.end)) {
+          mouseDownDate = selection.start
+          return
+        }
+        if(mouseDownDate.equalsOnlyDate(selection.start)) {
+          mouseDownDate = selection.end
+          return
+        }
+        if(selection.hasDate(mouseDownDate)) {
+          status = Status.MOVE
+          return
+        }
+
+        if(enabledCell(elem)) {
           startNewRange()
         }
+
         function enabledCell(elem) {
           return isDateCell(elem) && isEnabled(elem)
         }
@@ -330,18 +334,18 @@
 
         function instantSelection(event) {
           var elem = event.target
-          if (isWeekCell(elem)) {
+          if(isWeekCell(elem)) {
             status = Status.NONE
             var dayInWeek = date($(elem).siblings('.date'))
             return new DateRange(dayInWeek, dayInWeek.plusDays(6))
-          } else if (isMonthCell(elem)) {
+          } else if(isMonthCell(elem)) {
             status = Status.NONE
             var dayInMonth = date($(elem).siblings('.date'))
             return new DateRange(dayInMonth.firstDateOfMonth(), dayInMonth.lastDateOfMonth())
-          } else if (event.shiftKey) {
-            if (selection.days() > 0 && enabledCell(elem)) {
+          } else if(event.shiftKey) {
+            if(selection.days() > 0 && enabledCell(elem)) {
               status = Status.NONE
-              selection.expandTo(elem.date)
+              selection = selection.expandTo(elem.date)
               return selection
             }
           }
@@ -350,24 +354,31 @@
       }
 
       function mouseMove(event) {
-        if (status == Status.NONE) {
+        if(status == Status.NONE) {
           return
         }
         var date = event.target.date
-        if (isEnabled(event.target)) {
-          switch (status) {
-            case Status.MOVE:
-              var deltaDays = mouseDownDate.distanceInDays(date)
+        switch(status) {
+          case Status.MOVE:
+            var deltaDays = mouseDownDate.distanceInDays(date)
+            var movedSelection = selection.shiftDays(deltaDays).and(calendarRange)
+            if(isPermittedRange(movedSelection)) {
               mouseDownDate = date
-              selection.shiftDays(deltaDays)
-              selection = selection.and(calendarRange)
-              break
-            case Status.CREATE:
-              selection = new DateRange(mouseDownDate, date)
-              break
-          }
-          drawSelection()
+              selection = movedSelection
+            }
+            break
+          case Status.CREATE_OR_RESIZE:
+            var newSelection = new DateRange(mouseDownDate, date)
+            if(isEnabled(event.target) && isPermittedRange(newSelection)) {
+              selection = newSelection
+            }
+            break
         }
+        drawSelection()
+      }
+
+      function isPermittedRange(newSelection) {
+        return newSelection.hasValidSize(params.minimumRange) && (!(params.disableWeekends && newSelection.hasEndsOnWeekend()));
       }
 
       function mouseUp() {
@@ -376,7 +387,21 @@
         afterSelection()
       }
 
+      function isTooSmallSelection() {
+        return params.minimumRange && selection.days() <= params.minimumRange;
+      }
+
       function drawSelection() {
+        if(isTooSmallSelection()) {
+          var newSelection = selection.expandDaysTo(params.minimumRange)
+          if(params.disableWeekends && newSelection.hasEndsOnWeekend()) {
+            newSelection = newSelection.shiftDays(delta(newSelection.end.getDay()))
+          }
+          selection = newSelection
+        }
+        function delta(x) {
+          return -((x + 1) % 7 + 1)
+        }
         drawSelectionBetweenDates(selection)
         $('span.rangeLengthLabel', container).text(Date.daysLabel(selection.days()))
       }

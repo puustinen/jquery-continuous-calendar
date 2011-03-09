@@ -14,7 +14,6 @@
 module("empty calendar of full year")
 
 test("module init", function() {
-  $('#tests').hide()
   createCalendarContainer()
   createCalendarFromJanuary()
 })
@@ -227,7 +226,7 @@ test("range is expandable by clicking with shift key", function() {
   //4/15/2009",lastDate:"5/12/2009
 })
 
-test("range has default of on year per direction", function() {
+test("range has default of one year per direction", function() {
   createCalendarFields({startDate: "4/29/2009", endDate: "5/5/2009"}).continuousCalendar()
   equals(cal().find(".date").size(), 7 * (26 * 2 + 1))
 })
@@ -251,7 +250,7 @@ test("range can be specified with weeks and dates mixed", function() {
 
 //TODO fails with IE7
 test("calendar executes callback-function and triggers event when date is picked", function() {
-  function testFunction(date) {
+  function testFunction() {
     calendarCallBack++
   }
   bindCalled = 0
@@ -347,6 +346,62 @@ test("when selecting date", function() {
   equals(startFieldValue(), "10/26/2008", "selected date is set correctly to hidden field without day of week")
 })
 
+module("minimum range with disabled weekends")
+
+test("module init", function() {
+  createCalendarContainer()
+  createCalendarFields({startDate: "4/27/2009", endDate: "4/27/2009"}).continuousCalendar({firstDate:"4/15/2009",lastDate:"5/12/2009", minimumRange: 4, disableWeekends: true})
+})
+
+test("initial range has minimum required size", function() {
+  assertHasValues('.selected', [27,28,29,30])
+})
+
+test("resizing to smaller that permitted is ignored", function() {
+  dragDates(27, 28)
+  assertHasValues('.selected', [27,28,29,30])
+  dragDates(30, 29)
+  assertHasValues('.selected', [27,28,29,30])
+})
+
+test("resizing to smaller that permitted is ignored", function() {
+  dragDates(27, 28)
+  assertHasValues('.selected', [27,28,29,30])
+})
+
+test("resizing skips weekends", function() {
+  dragDates(27,26)
+  assertHasValues('.selected', [27,28,29,30])
+  dragDates(30, 1)
+  assertHasValues('.selected', [27,28,29,30, 1])
+})
+
+test("moving skips weekends", function() {
+  dragDates(28, 29)
+  assertHasValues('.selected', [27, 28,29,30, 1])
+  dragDatesSlowly(28, 1)
+  assertHasValues('.selected', [30, 1, 2, 3, 4])
+  dragDatesSlowly(3, 4)
+  assertHasValues('.selected', [1, 2, 3, 4, 5])
+  dragDatesSlowly(4, 3)
+  assertHasValues('.selected', [30, 1, 2, 3, 4])
+})
+
+test("prevent selecting range that starts or ends on weekend", function() {
+  mouseDownMouseUpOnDate(19)
+  assertHasValues('.selected', [30, 1, 2, 3, 4])
+  mouseDownMouseUpOnDate(6)
+  assertHasValues('.selected', [5, 6, 7, 8])
+})
+
+test = QUnit.test
+module = QUnit.module
+equals = QUnit.equal
+ok = QUnit.ok
+QUnit.begin = function() {
+  $('#tests').hide()
+}
+
 QUnit.done = function() {
   $('#tests').show()
 }
@@ -365,7 +420,7 @@ var testIndex = 0
 function createCalendarContainer() {
   testIndex++
   var container = $("<div>").addClass('testCalendarContainer')
-  var index = $('<div></div>').append(testName).addClass('testLabel')
+  var index = $('<div></div>').append(testName.name).addClass('testLabel')
   container.attr("id", calendarId())
   container.append(index)
   $("#calendars").append(container)

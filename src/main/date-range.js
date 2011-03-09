@@ -34,18 +34,33 @@ function DateRange(date1, date2) {
     }
   }
   this.shiftDays = function(days) {
-    this.start = this.start.plusDays(days)
-    this.end = this.end.plusDays(days)
+    return new DateRange(this.start.plusDays(days), this.end.plusDays(days))
   }
   this.expandTo = function(date) {
+    var newStart = this.start.clone()
+    var newEnd = this.end.clone()
     if (date.compareTo(this.start) < 0) {
-      this.start = date
+      newStart = date
     } else {
       if (date.compareTo(this.end) > 0) {
-        this.end = date
+        newEnd = date
       }
     }
+    return new DateRange(newStart, newEnd)
   }
+
+  this.expandDaysTo = function(days) {
+    return new DateRange(this.start, this.start.plusDays(days-1))
+  }
+
+  this.hasValidSize = function(minimumDays) {
+    return minimumDays < 0 || this.days() >= minimumDays
+  }
+
+  this.hasValidSizeAndEndsOnWorkWeek = function(minimumDays) {
+    return this.hasValidSize(minimumDays) && this.hasEndsOnWeekend()
+  }
+
   this.and = function(that) {
     var latestStart = this.start.compareTo(that.start) > 0 ? this.start : that.start
     var earliestEnd = this.end.compareTo(that.end) > 0 ? that.end : this.end
@@ -55,6 +70,11 @@ function DateRange(date1, date2) {
       return DateRange.emptyRange()
     }
   }
+
+  this.hasEndsOnWeekend = function() {
+    return this.start.isWeekend() || this.end.isWeekend()
+  }
+
   this.setTimes = function(startTimeStr, endTimeStr) {
     var parsedStartTime = Date.parseTime(startTimeStr)
     var parsedEndTime = Date.parseTime(endTimeStr)
@@ -93,7 +113,6 @@ function DateRange(date1, date2) {
 
   this.toString = function(locale) {
     if (hasTimes) {
-      var minutes = this.minutes() > 0 ? ',' + (this.minutes() / 6) : ''
       return  Date.daysLabel(this.days()) + ' ' + Date.hoursLabel(this.hours(), this.minutes())
     } else {
       return this.start.dateFormat(locale.shortDateFormat) + ' - ' + this.end.dateFormat(locale.shortDateFormat)
