@@ -11,9 +11,6 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-var start
-var end
-var range
 
 module("date range default behavior", {
   setup: resetRange
@@ -48,6 +45,14 @@ test("two ranges can do interception", function() {
   range2 = new DateRange(new Date('09/16/2009'), new Date('09/19/2009'))
   equals(range.and(range2).days(), 0)
 })
+
+test("ranges can be asked if it is a subset of another range", function() {
+  ok(range.isInside(range))
+  ok(!range.isInside(range.shiftDays(1)))
+  ok(range.isInside(range.expandDaysTo(7)))
+  ok(!range.expandDaysTo(7).isInside(range))
+})
+
 
 module("date range with time behavior", {
   setup: resetRange
@@ -106,7 +111,7 @@ test("invalid time will make range invalid while keeping date information", func
 
   range.setTimes('00', '25')
   ok(!range.isValid())
-  
+
 })
 
 test("different time formats are accepted", function() {
@@ -137,7 +142,7 @@ test("minutes are rounded to 2 digits", function() {
 })
 
 function assertHasCorrectHoursAndMinutes(hours, minutes) {
-  ok(range.isValid(),"valid range")
+  ok(range.isValid(), "valid range")
   equals(range.hours(), hours, "correct hours")
   equals(range.minutes(), minutes, "correct minutes")
 }

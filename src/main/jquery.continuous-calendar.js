@@ -11,6 +11,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+;
 (function($) {
   $.fn.continuousCalendar = function(options) {
     this.each(function() {
@@ -44,7 +45,7 @@
       params.locale.init()
       var startDate = fieldDate(params.startField)
       var endDate = fieldDate(params.endField)
-      if (params.selectToday) {
+      if(params.selectToday) {
         var today = Date.NOW
         var formattedToday = formatDate(today)
         startDate = today
@@ -53,100 +54,139 @@
         setEndField(formattedToday)
       }
       var firstWeekdayOfGivenDate = (startDate || Date.NOW).getFirstDateOfWeek(params.locale.firstWeekday)
-      var container = this
-      var dateCells = []
-      var dateCellDates = []
-      var dateCellMap = {}
-      var mouseDownDate = null
-      var averageCellHeight
-      var yearTitle
-      var selection = DateRange.emptyRange()
-      var oldSelection
-      var calendarRange
-      var status = Status.NONE
-      var calendar
-      var scrollContent
-      var beforeFirstOpening = true
-      var bodyTable
+      var container = this,
+        dateCells = [],
+        dateCellDates = [],
+        dateCellMap = {},
+        mouseDownDate = null, averageCellHeight,
+        yearTitle,
+        selection,
+        oldSelection,
+        calendarRange,
+        status = Status.NONE,
+        calendarContainer,
+        scrollContent,
+        beforeFirstOpening = true,
+        bodyTable,
+        calendar
 
       createCalendar()
+
       function createCalendar() {
-        if (startDate && endDate) {
-          selection = new DateRange(startDate, endDate)
-        }
+        calendar = $.extend(popUpBehaviour(params.isPopup), dateBehaviour(isRange()))
+        selection = startDate && endDate ? new DateRange(startDate, endDate) : DateRange.emptyRange();
         oldSelection = selection.clone()
-        container.data('calendarRange', selection)
         var rangeStart = params.firstDate ? Date.parseDate(params.firstDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(-(params.weeksBefore * 7))
         var rangeEnd = params.lastDate ? Date.parseDate(params.lastDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(params.weeksAfter * 7 + 6)
         calendarRange = new DateRange(rangeStart, rangeEnd)
         var headerTable = $('<table>').addClass('calendarHeader').append(headerRow())
         bodyTable = $('<table>').addClass('calendarBody').append(calendarBody())
         scrollContent = $('<div>').addClass('calendarScrollContent').append(bodyTable)
-        calendar = getCalendarContainerOrCreateOne()
-        calendar.append(headerTable).append(scrollContent)
-        if (params.isPopup) {
-          isHidden = true
-          calendar.addClass('popup').hide()
-          var icon = $('<a href="#" class="calendarIcon">' + Date.NOW.getDate() + '</a>').click(toggleCalendar)
-          container.append(icon)
-        } else {
-          calculateCellHeightAndSetScroll()
+        calendarContainer = getCalendarContainerOrCreateOne()
+        calendarContainer.append(headerTable).append(scrollContent)
+        calendar.initState()
+        if($('.startDateLabel', container).isEmpty()) {
+          addDateLabels(container, calendar)
         }
-        if ($('.startDateLabel', container).isEmpty()) {
-          addDateLabels(container)
-        }
-        if ($('.rangeLengthLabel', container).isEmpty() && isRange()) {
-          addRangeLengthLabel(container)
-        }
+        calendar.addRangeLengthLabel()
         highlightToday()
-        if (isRange()) {
-          initRangeCalendarEvents(container, bodyTable)
-          drawSelection()
-        } else {
-          initSingleDateCalendarEvents()
-          var selectedDateKey = startDate && startDate.dateFormat('Ymd')
-          if (dateCellMap[selectedDateKey]) {
-            dateCells[dateCellMap[selectedDateKey]].addClass('selected')
-          }
-        }
+        calendar.initEvents()
         yearTitle = $('th.month', headerTable)
         scrollContent.scroll(setYearLabel)
         scrollToSelection()
+        container.data('calendarRange', selection)
         executeCallback()
+      }
+
+      function dateBehaviour(isRange) {
+        var rangeVersion = {
+          initEvents: function() {
+            initRangeCalendarEvents(container, bodyTable)
+            drawSelection()
+          },
+          addRangeLengthLabel: function() {
+            if($('.rangeLengthLabel', container).isEmpty()) {
+              var rangeLengthContainer = $('<div class="label">')
+              rangeLengthContainer.append('<span class="rangeLengthLabel"></span>')
+              $('.continuousCalendar', container).append(rangeLengthContainer)
+            }
+          },
+          addEndDateLabel: function(dateLabelContainer) {
+            dateLabelContainer.append('<span class="separator"> - </span>').append('<span class="endDateLabel"></span>')
+          }
+        }
+        var singleDateVersion = {
+          initEvents: function() {
+            initSingleDateCalendarEvents()
+            var selectedDateKey = startDate && startDate.dateFormat('Ymd')
+            if(dateCellMap[selectedDateKey]) {
+              dateCells[dateCellMap[selectedDateKey]].addClass('selected')
+            }
+          },
+          addRangeLengthLabel: function() {
+          },
+          addEndDateLabel: function() {
+          }
+        }
+        return isRange ? rangeVersion : singleDateVersion
+      }
+
+      function popUpBehaviour(isPopup) {
+        var popUpVersion = {
+          initState: function() {
+            calendarContainer.addClass('popup').hide()
+            var icon = $('<a href="#" class="calendarIcon">' + Date.NOW.getDate() + '</a>').click(toggleCalendar)
+            container.append(icon)
+          },
+          getContainer: function(newContainer) {
+            return $('<div>').addClass('popUpContainer').append(newContainer);
+          },
+          addCloseButton: function(tr) {
+            var close = $('<th><a href="#"><span>close</span></a>')
+            $('a', close).click(toggleCalendar)
+            tr.append(close)
+          },
+          close: function(cell) {
+            toggleCalendar.call(cell)
+          }
+        }
+        var inlineVersion = {
+          initState: calculateCellHeightAndSetScroll,
+          getContainer: function(newContainer) {
+            return newContainer
+          },
+          addCloseButton: function() {
+          },
+          close: function() {
+          }
+        }
+        return isPopup ? popUpVersion : inlineVersion
       }
 
       function highlightToday() {
         var todayKey = Date.NOW.dateFormat('Ymd')
-        if (dateCellMap[todayKey]) {
+        if(dateCellMap[todayKey]) {
           dateCells[dateCellMap[todayKey]].addClass('today')
         }
       }
 
       function getCalendarContainerOrCreateOne() {
         var existingContainer = $('.continuousCalendar', container)
-        if (existingContainer.exists()) {
+        if(existingContainer.exists()) {
           return existingContainer
         } else {
           var newContainer = $('<div>').addClass('continuousCalendar')
-          container.append(params.isPopup ? $('<div>').addClass('popUpContainer').append(newContainer) : newContainer)
+          container.append(calendar.getContainer(newContainer))
           return newContainer
         }
       }
 
-      function addDateLabels(container) {
+      function addDateLabels(container, calendar) {
         var dateLabelContainer = $('<div class="label">')
         dateLabelContainer.append('<span class="startDateLabel"></span>')
-        if (isRange()) {
-          dateLabelContainer.append('<span class="separator"> - </span>').append('<span class="endDateLabel"></span>')
-        }
+        calendar.addEndDateLabel(dateLabelContainer)
         container.append(dateLabelContainer)
         dateLabelContainer.click(toggleCalendar)
-      }
-
-      function addRangeLengthLabel(container) {
-        var rangeLengthContainer = $('<div class="label">')
-        rangeLengthContainer.append('<span class="rangeLengthLabel"></span>')
-        $('.continuousCalendar', container).append(rangeLengthContainer)
       }
 
       function initRangeCalendarEvents(container, bodyTable) {
@@ -159,7 +199,7 @@
 
       function scrollToSelection() {
         var selectionStartOrToday = $('.selected, .today', scrollContent).get(0)
-        if (selectionStartOrToday) {
+        if(selectionStartOrToday) {
           scrollContent.scrollTop(selectionStartOrToday.offsetTop - (scrollContent.height() - selectionStartOrToday.offsetHeight) / 2)
         }
       }
@@ -179,11 +219,7 @@
           var weekDay = $('<th>').append(Date.dayNames[(index + params.locale.firstWeekday) % 7].substr(0, 2)).addClass('weekDay')
           tr.append(weekDay)
         })
-        if (params.isPopup) {
-          var close = $('<th><a href="#"><span>close</span></a>')
-          $('a', close).click(toggleCalendar)
-          tr.append(close)
-        }
+        calendar.addCloseButton(tr);
         return $('<thead>').append(tr)
         function yearCell() {
           return $('<th>').addClass('month').append(firstWeekdayOfGivenDate.getFullYear())
@@ -200,8 +236,8 @@
       }
 
       function toggleCalendar() {
-        calendar.toggle()
-        if (beforeFirstOpening) {
+        calendarContainer.toggle()
+        if(beforeFirstOpening) {
           calculateCellHeight()
           beforeFirstOpening = false
         }
@@ -213,7 +249,7 @@
         var tbody = $('<tbody>')
         var firstWeekDay = calendarRange.start.getFirstDateOfWeek(params.locale.firstWeekday)
         var isFirst = true;
-        while (firstWeekDay.compareTo(calendarRange.end) <= 0) {
+        while(firstWeekDay.compareTo(calendarRange.end) <= 0) {
           tbody.append(calendarRow(firstWeekDay.clone(), isFirst))
           isFirst = false
           firstWeekDay = firstWeekDay.plusDays(7)
@@ -223,7 +259,7 @@
 
       function calendarRow(firstDayOfWeek, isFirst) {
         var tr = $('<tr>').append(monthCell(firstDayOfWeek, isFirst)).append(weekCell(firstDayOfWeek))
-        for (var i = 0; i < 7; i++) {
+        for(var i = 0; i < 7; i++) {
           var date = firstDayOfWeek.plusDays(i)
           tr.append(dateCell(date))
         }
@@ -241,10 +277,10 @@
 
       function monthCell(firstDayOfWeek, isFirst) {
         var th = $('<th>').addClass('month').addClass(backgroundBy(firstDayOfWeek))
-        if (isFirst || firstDayOfWeek.getDate() <= 7) {
+        if(isFirst || firstDayOfWeek.getDate() <= 7) {
           th.append(Date.monthNames[firstDayOfWeek.getMonth()]).addClass('monthName')
         } else {
-          if (firstDayOfWeek.getDate() <= 7 * 2 && firstDayOfWeek.getMonth() == 0) {
+          if(firstDayOfWeek.getDate() <= 7 * 2 && firstDayOfWeek.getMonth() == 0) {
             th.append(firstDayOfWeek.getFullYear())
           }
         }
@@ -276,18 +312,16 @@
       function initSingleDateCalendarEvents() {
         $('.date', container).bind('click', function() {
           var dateCell = $(this)
-          if (dateCell.hasClass('disabled')) return
+          if(dateCell.hasClass('disabled')) return
           $('td.selected', container).removeClass('selected')
           dateCell.addClass('selected')
           params.startField.val(date(dateCell).dateFormat(params.locale.shortDateFormat))
           setDateLabel(date(dateCell).dateFormat(params.locale.weekDateFormat))
-          if (params.isPopup) {
-            toggleCalendar.call(this)
-          }
+          calendar.close(this)
           executeCallback()
         })
 
-        if (params.startField.val()) {
+        if(params.startField.val()) {
           setDateLabel(Date.parseDate(params.startField.val(), params.locale.shortDateFormat).dateFormat(params.locale.weekDateFormat))
         }
       }
@@ -358,27 +392,29 @@
           return
         }
         var date = event.target.date
-        switch(status) {
-          case Status.MOVE:
+          ;
+        ({
+          move : function() {
             var deltaDays = mouseDownDate.distanceInDays(date)
             var movedSelection = selection.shiftDays(deltaDays).and(calendarRange)
             if(isPermittedRange(movedSelection)) {
               mouseDownDate = date
               selection = movedSelection
             }
-            break
-          case Status.CREATE_OR_RESIZE:
+          },
+          create : function() {
             var newSelection = new DateRange(mouseDownDate, date)
             if(isEnabled(event.target) && isPermittedRange(newSelection)) {
               selection = newSelection
             }
-            break
-        }
+          }
+
+        })[status]()
         drawSelection()
       }
 
       function isPermittedRange(newSelection) {
-        return newSelection.hasValidSize(params.minimumRange) && (!(params.disableWeekends && newSelection.hasEndsOnWeekend()));
+        return newSelection.isPermittedRange(params.minimumRange, params.disableWeekends, calendarRange)
       }
 
       function mouseUp() {
@@ -387,21 +423,8 @@
         afterSelection()
       }
 
-      function isTooSmallSelection() {
-        return params.minimumRange && selection.days() <= params.minimumRange;
-      }
-
       function drawSelection() {
-        if(isTooSmallSelection()) {
-          var newSelection = selection.expandDaysTo(params.minimumRange)
-          if(params.disableWeekends && newSelection.hasEndsOnWeekend()) {
-            newSelection = newSelection.shiftDays(delta(newSelection.end.getDay()))
-          }
-          selection = newSelection
-        }
-        function delta(x) {
-          return -((x + 1) % 7 + 1)
-        }
+        selection = DateRange.rangeWithMinimumSize(selection, params.minimumRange, params.disableWeekends, calendarRange)
         drawSelectionBetweenDates(selection)
         $('span.rangeLengthLabel', container).text(Date.daysLabel(selection.days()))
       }
@@ -414,10 +437,10 @@
       }
 
       function iterateAndToggleCells(range) {
-        if (range.days() == 0) return
+        if(range.days() == 0) return
         var startIndex = dateCellMap[range.start.dateFormat('Ymd')]
         var endIndex = dateCellMap[range.end.dateFormat('Ymd')]
-        for (var i = startIndex; i <= endIndex; i++) {
+        for(var i = startIndex; i <= endIndex; i++) {
           setDateCellStyle(i, range.start, range.end)
         }
       }
@@ -426,13 +449,13 @@
         var date = dateCellDates[i]
         var elem = dateCells[i].get(0)
         var styleClass = [dateStyles(date)]
-        if (date.equalsOnlyDate(end)) {
+        if(date.equalsOnlyDate(end)) {
           styleClass.push('selected rangeEnd')
         } else {
-          if (date.equalsOnlyDate(start)) {
+          if(date.equalsOnlyDate(start)) {
             styleClass.push('selected rangeStart')
           } else {
-            if (date.isBetweenDates(start, end)) {
+            if(date.isBetweenDates(start, end)) {
               styleClass.push('selected')
             }
           }
@@ -451,7 +474,7 @@
       }
 
       function setRangeLabels() {
-        if (selection.start && selection.end) {
+        if(selection.start && selection.end) {
           var format = params.locale.weekDateFormat
           $('span.startDateLabel', container).text(selection.start.dateFormat(format))
           $('span.endDateLabel', container).text(selection.end.dateFormat(format))
@@ -462,7 +485,7 @@
       }
 
       function fieldDate(field) {
-        if (field.length > 0 && field.val().length > 0) {
+        if(field.length > 0 && field.val().length > 0) {
           return Date.parseDate(field.val(), params.locale.shortDateFormat)
         } else {
           return null
@@ -470,10 +493,10 @@
       }
 
       function disableTextSelection(elem) {
-        if ($.browser.mozilla) {//Firefox
+        if($.browser.mozilla) {//Firefox
           $(elem).css('MozUserSelect', 'none')
         } else {
-          if ($.browser.msie) {//IE
+          if($.browser.msie) {//IE
             $(elem).bind('selectstart', function() {
               return false
             })
