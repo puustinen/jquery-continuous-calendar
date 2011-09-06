@@ -112,13 +112,12 @@
   font-size: 7pt;
 }
 
-.continuousCalendar .freeRange .week,
-.continuousCalendar .freeRange .month,
-.continuousCalendar .weekRange .week {
+.continuousCalendar .range .week,
+.continuousCalendar .range .month {
   cursor: pointer;
 }
 
-.continuousCalendar .freeRange .selected:hover {
+.continuousCalendar .range .selected:hover {
   cursor: move;
 }
 
@@ -152,26 +151,25 @@
   color: white;
 }
 
-.continuousCalendar .freeRange .week,
-.continuousCalendar .weekRange .week {
+.continuousCalendar .range .week {
   text-decoration: underline;
 }
 
-.continuousCalendar .freeRange.calendarBody .month {
+.continuousCalendar .range.calendarBody .month {
   text-decoration: underline;
 }
 
-.continuousCalendar .freeRange td {
+.continuousCalendar .range td {
   cursor: w-resize;
   cursor: ew-resize;
 }
 
-.continuousCalendar .freeRange td.rangeStart:hover {
+.continuousCalendar .range td.rangeStart:hover {
   cursor: w-resize;
   cursor: ew-resize;
 }
 
-.continuousCalendar .freeRange  td.rangeEnd:hover {
+.continuousCalendar .range  td.rangeEnd:hover {
   cursor: e-resize;
   cursor: ew-resize;
 }
@@ -191,7 +189,7 @@
   float: left;
 }
 
-.continuousCalendarContainer div.label span.clickable {
+.continuousCalendarContainer div.label span {
   cursor: pointer;
 }
 .continuousCalendarContainer .popUpContainer {

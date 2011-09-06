@@ -460,10 +460,6 @@ Date.formatCodeToRegex = function(character, currentGroup) {
       return {g:0,
         c:null,
         s:"[+-]\\d{1,5}"}
-    case ".":
-      return {g:0,
-        c:null,
-        s:"\\."}
     default:
       return {g:0,
         c:null,
@@ -663,12 +659,6 @@ window.DATE_LOCALE_FI = {
       'marraskuu',
       'joulukuu']
     Date.dayNames = ['su','ma','ti','ke','to','pe','la']
-    Date.yearsLabel = function(years) {
-      return years + ' ' + (years == '1' ? 'vuosi' : 'vuotta');
-    }
-    Date.monthsLabel = function(months) {
-      return months + ' ' + (months == '1' ? 'kuukausi' : 'kuukautta');
-    }
     Date.daysLabel = function(days) {
       return days + ' ' + (days == '1' ? 'päivä' : 'päivää');
     }
@@ -676,7 +666,6 @@ window.DATE_LOCALE_FI = {
       var hoursAndMinutes = Date.hoursAndMinutes(hours, minutes).replace('.', ',')
       return hoursAndMinutes + ' ' + (hoursAndMinutes == '1' ? 'tunti' : 'tuntia');
     }
-
   },
   shortDateFormat: 'j.n.Y',
   weekDateFormat: 'D j.n.Y',
@@ -704,12 +693,6 @@ window.DATE_LOCALE_EN = {
       'Thursday',
       'Friday',
       'Saturday']
-    Date.yearsLabel = function(years) {
-      return years + ' ' + (years == '1' ? 'Year' : 'Years');
-    }
-    Date.monthsLabel = function(months) {
-      return months + ' ' + (months == '1' ? 'Months' : 'Months');
-    }
     Date.daysLabel = function(days) {
       return days + ' ' + (days == '1' ? 'Day' : 'Days');
     }
@@ -744,14 +727,8 @@ window.DATE_LOCALE_AU = {
       'Thursday',
       'Friday',
       'Saturday']
-    Date.yearsLabel = function(years) {
-      return years + ' ' + (years == '1' ? 'Year' : 'Years');
-    }
-    Date.monthsLabel = function(months) {
-      return months + ' ' + (months == '1' ? 'Months' : 'Months');
-    }
     Date.daysLabel = function(days) {
-      return days + ' ' + (days == '1' ? 'Day' : 'Days');
+      return (days - 1) + ' Days'
     }
     Date.hoursLabel = function(hours, minutes) {
       var hoursAndMinutes = Date.hoursAndMinutes(hours, minutes)
@@ -897,16 +874,6 @@ function DateRange(date1, date2) {
     }
   }
 
-  this.printDefiningDuration = function() {
-    var years = parseInt(this.days()/360, 10)
-    if (years > 0) return Date.yearsLabel(years)
-
-    var months = parseInt(this.days()/30, 10)
-    if (months > 0) return Date.monthsLabel(months)
-
-    return Date.daysLabel(this.days())
-  }
-
   this.isPermittedRange = function(minimumSize, disableWeekends, outerRange) {
     return this.hasValidSize(minimumSize) && (!(disableWeekends && this.hasEndsOnWeekend())) && this.isInside(outerRange)
   }
@@ -1013,7 +980,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         disabledDates: null,
         minimumRange: -1,
         selectWeek: false,
-        fadeOutDuration: 0,
         callback: function() {
         }
       }
@@ -1060,7 +1026,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         var rangeStart = params.firstDate ? Date.parseDate(params.firstDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(-(params.weeksBefore * 7))
         var rangeEnd = params.lastDate ? Date.parseDate(params.lastDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(params.weeksAfter * 7 + 6)
         params.disabledDates = params.disabledDates ? parseDisabledDates(params.disabledDates) : {}
-        params.fadeOutDuration = parseInt(params.fadeOutDuration, 10)
         calendarRange = new DateRange(rangeStart, rangeEnd)
         var headerTable = $('<table>').addClass('calendarHeader').append(headerRow())
         bodyTable = $('<table>').addClass('calendarBody').append(calendarBody())
@@ -1141,10 +1106,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
           },
           close: function(cell) {
             toggleCalendar.call(cell)
-          },
-          addDateLabelBehaviour: function(label) {
-            label.addClass('clickable')
-            label.click(toggleCalendar)
           }
         }
         var inlineVersion = {
@@ -1152,9 +1113,10 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
           getContainer: function(newContainer) {
             return newContainer
           },
-          addCloseButton: $.noop,
-          close: $.noop,
-          addDateLabelBehaviour: $.noop
+          addCloseButton: function() {
+          },
+          close: function() {
+          }
         }
         return isPopup ? popUpVersion : inlineVersion
       }
@@ -1182,7 +1144,7 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         dateLabelContainer.append('<span class="startDateLabel"></span>')
         calendar.addEndDateLabel(dateLabelContainer)
         container.append(dateLabelContainer)
-        calendar.addDateLabelBehaviour(dateLabelContainer.children())
+        dateLabelContainer.click(toggleCalendar)
       }
 
       function initRangeCalendarEvents(container, bodyTable) {
@@ -1232,11 +1194,7 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
       }
 
       function toggleCalendar() {
-        if(calendarContainer.is(':visible')) {
-          calendarContainer.fadeOut(params.fadeOutDuration)
-          return false
-        }
-        calendarContainer.show()
+        calendarContainer.toggle()
         if(beforeFirstOpening) {
           calculateCellHeight()
           setYearLabel()

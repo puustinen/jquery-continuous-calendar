@@ -25,7 +25,6 @@ Date.HOUR = 60 * Date.MINUTE
 Date.DAY = 24 * Date.HOUR
 Date.WEEK = 7 * Date.DAY
 Date.MONDAY = 1
-Date.FRIDAY = 5
 Date.SUNDAY = 0
 Date.NOW = new Date()
 Date.getDaysInMonth = function(year, month) {
@@ -200,15 +199,6 @@ Date.prototype.distanceInDays = function(date) {
   var last = parseInt(date.getTime() / Date.DAY, 10)
   return (last - first)
 }
-
-Date.prototype.withWeekday = function(weekday) {
-  return this.plusDays(weekday - this.getDay())
-}
-
-Date.prototype.getOnlyDate = function() {
-  return new Date(this.getFullYear(), this.getMonth(), this.getDate())
-}
-
 
 /*
  * Copyright (C) 2004 Baron Schwartz <baron at sequent dot org>
@@ -460,10 +450,6 @@ Date.formatCodeToRegex = function(character, currentGroup) {
       return {g:0,
         c:null,
         s:"[+-]\\d{1,5}"}
-    case ".":
-      return {g:0,
-        c:null,
-        s:"\\."}
     default:
       return {g:0,
         c:null,
@@ -662,13 +648,7 @@ window.DATE_LOCALE_FI = {
       'lokakuu',
       'marraskuu',
       'joulukuu']
-    Date.dayNames = ['su','ma','ti','ke','to','pe','la']
-    Date.yearsLabel = function(years) {
-      return years + ' ' + (years == '1' ? 'vuosi' : 'vuotta');
-    }
-    Date.monthsLabel = function(months) {
-      return months + ' ' + (months == '1' ? 'kuukausi' : 'kuukautta');
-    }
+    Date.dayNames = ['Su','Ma','Ti','Ke','To','Pe','La']
     Date.daysLabel = function(days) {
       return days + ' ' + (days == '1' ? 'päivä' : 'päivää');
     }
@@ -676,7 +656,6 @@ window.DATE_LOCALE_FI = {
       var hoursAndMinutes = Date.hoursAndMinutes(hours, minutes).replace('.', ',')
       return hoursAndMinutes + ' ' + (hoursAndMinutes == '1' ? 'tunti' : 'tuntia');
     }
-
   },
   shortDateFormat: 'j.n.Y',
   weekDateFormat: 'D j.n.Y',
@@ -704,12 +683,6 @@ window.DATE_LOCALE_EN = {
       'Thursday',
       'Friday',
       'Saturday']
-    Date.yearsLabel = function(years) {
-      return years + ' ' + (years == '1' ? 'Year' : 'Years');
-    }
-    Date.monthsLabel = function(months) {
-      return months + ' ' + (months == '1' ? 'Months' : 'Months');
-    }
     Date.daysLabel = function(days) {
       return days + ' ' + (days == '1' ? 'Day' : 'Days');
     }
@@ -744,14 +717,8 @@ window.DATE_LOCALE_AU = {
       'Thursday',
       'Friday',
       'Saturday']
-    Date.yearsLabel = function(years) {
-      return years + ' ' + (years == '1' ? 'Year' : 'Years');
-    }
-    Date.monthsLabel = function(months) {
-      return months + ' ' + (months == '1' ? 'Months' : 'Months');
-    }
     Date.daysLabel = function(days) {
-      return days + ' ' + (days == '1' ? 'Day' : 'Days');
+      return (days - 1) + ' Days'
     }
     Date.hoursLabel = function(hours, minutes) {
       var hoursAndMinutes = Date.hoursAndMinutes(hours, minutes)
@@ -762,8 +729,7 @@ window.DATE_LOCALE_AU = {
   weekDateFormat: 'D j/n/Y',
   dateTimeFormat: 'D j/n/Y G:i',
   firstWeekday: Date.SUNDAY
-};
-/* ==============================================================================
+};/* ==============================================================================
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
@@ -896,34 +862,8 @@ function DateRange(date1, date2) {
       return this.start.dateFormat(locale.shortDateFormat) + ' - ' + this.end.dateFormat(locale.shortDateFormat)
     }
   }
-
-  this.printDefiningDuration = function() {
-    var years = parseInt(this.days()/360, 10)
-    if (years > 0) return Date.yearsLabel(years)
-
-    var months = parseInt(this.days()/30, 10)
-    if (months > 0) return Date.monthsLabel(months)
-
-    return Date.daysLabel(this.days())
-  }
-
   this.isPermittedRange = function(minimumSize, disableWeekends, outerRange) {
     return this.hasValidSize(minimumSize) && (!(disableWeekends && this.hasEndsOnWeekend())) && this.isInside(outerRange)
-  }
-
-  this.shiftInside = function(outerRange) {
-    if(this.days() > outerRange.days()) {
-      return DateRange.emptyRange()
-    }
-    var distanceToOuterRangeStart = this.start.distanceInDays(outerRange.start)
-    var distanceToOuterRangeEnd = this.end.distanceInDays(outerRange.end)
-    if(distanceToOuterRangeStart > 0) {
-      return this.shiftDays(distanceToOuterRangeStart)
-    }
-    if(distanceToOuterRangeEnd < 0) {
-      return this.shiftDays(distanceToOuterRangeEnd)
-    }
-    return this
   }
 }
 DateRange.emptyRange = function() {
@@ -950,21 +890,15 @@ DateRange.parse = function(dateStr1, dateStr2, dateFormat) {
 }
 DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends, outerRange) {
   if(isTooSmallSelection()) {
-    var newRange = oldRange.expandDaysTo(minimumSize)
-    if(disableWeekends && newRange.hasEndsOnWeekend()) {
-      var shiftedDays = newRange.shiftDays(delta(newRange.end.getDay())).shiftInside(outerRange)
+    var newSelection = oldRange.expandDaysTo(minimumSize)
+    if(disableWeekends && newSelection.hasEndsOnWeekend()) {
+      var shiftedDays = newSelection.shiftDays(delta(newSelection.end.getDay()));
       while(!shiftedDays.isPermittedRange(minimumSize, disableWeekends, outerRange) || shiftedDays.end.compareTo(outerRange.end) > 0) {
-        if (!shiftedDays.isPermittedRange(minimumSize, false, outerRange)) {
-          return DateRange.emptyRange()
-        }
         shiftedDays = shiftedDays.shiftDays(1)
       }
-      newRange = shiftedDays
+      newSelection = shiftedDays
     }
-    if(!newRange.isPermittedRange(minimumSize, false, outerRange)) {
-      return DateRange.emptyRange()
-    }
-    return newRange
+    return newSelection
   }
   return oldRange
 
@@ -975,8 +909,7 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
   function delta(x) {
     return -((x + 1) % 7 + 1)
   }
-}
-/* ==============================================================================
+}/* ==============================================================================
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
@@ -1010,10 +943,7 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         selectToday: false,
         locale: DATE_LOCALE_EN,
         disableWeekends: false,
-        disabledDates: null,
-        minimumRange: -1,
-        selectWeek: false,
-        fadeOutDuration: 0,
+        minimumRange:-1,
         callback: function() {
         }
       }
@@ -1059,8 +989,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         oldSelection = selection.clone()
         var rangeStart = params.firstDate ? Date.parseDate(params.firstDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(-(params.weeksBefore * 7))
         var rangeEnd = params.lastDate ? Date.parseDate(params.lastDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(params.weeksAfter * 7 + 6)
-        params.disabledDates = params.disabledDates ? parseDisabledDates(params.disabledDates) : {}
-        params.fadeOutDuration = parseInt(params.fadeOutDuration, 10)
         calendarRange = new DateRange(rangeStart, rangeEnd)
         var headerTable = $('<table>').addClass('calendarHeader').append(headerRow())
         bodyTable = $('<table>').addClass('calendarBody').append(calendarBody())
@@ -1077,18 +1005,8 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         yearTitle = $('th.month', headerTable)
         scrollContent.scroll(setYearLabel)
         scrollToSelection()
-        if(!params.isPopup)
-          setYearLabel()
         container.data('calendarRange', selection)
         executeCallback()
-      }
-
-      function parseDisabledDates(dates) {
-        var dateMap = {}
-        $.each(dates.split(' '), function(index, date) {
-          dateMap[Date.parseDate(date, params.locale.shortDateFormat)] = true
-        })
-        return dateMap
       }
 
       function dateBehaviour(isRange) {
@@ -1141,10 +1059,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
           },
           close: function(cell) {
             toggleCalendar.call(cell)
-          },
-          addDateLabelBehaviour: function(label) {
-            label.addClass('clickable')
-            label.click(toggleCalendar)
           }
         }
         var inlineVersion = {
@@ -1152,9 +1066,10 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
           getContainer: function(newContainer) {
             return newContainer
           },
-          addCloseButton: $.noop,
-          close: $.noop,
-          addDateLabelBehaviour: $.noop
+          addCloseButton: function() {
+          },
+          close: function() {
+          }
         }
         return isPopup ? popUpVersion : inlineVersion
       }
@@ -1182,12 +1097,12 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         dateLabelContainer.append('<span class="startDateLabel"></span>')
         calendar.addEndDateLabel(dateLabelContainer)
         container.append(dateLabelContainer)
-        calendar.addDateLabelBehaviour(dateLabelContainer.children())
+        dateLabelContainer.click(toggleCalendar)
       }
 
       function initRangeCalendarEvents(container, bodyTable) {
         $('span.rangeLengthLabel', container).text(Date.daysLabel(selection.days()))
-        bodyTable.addClass(params.selectWeek ? 'weekRange' : 'freeRange')
+        bodyTable.addClass('range')
         bodyTable.mousedown(mouseDown).mouseover(mouseMove).mouseup(mouseUp)
         disableTextSelection(bodyTable.get(0))
         setRangeLabels()
@@ -1198,10 +1113,11 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         if(selectionStartOrToday) {
           scrollContent.scrollTop(selectionStartOrToday.offsetTop - (scrollContent.height() - selectionStartOrToday.offsetHeight) / 2)
         }
+		setYearLabel()
       }
 
       function setYearLabel() {
-        var scrollContent = $('.calendarScrollContent', container).get(0)
+        var scrollContent = this
         var table = $('table', scrollContent).get(0)
         var rowNumber = parseInt(scrollContent.scrollTop / averageCellHeight)
         var date = table.rows[rowNumber].cells[2].date
@@ -1232,14 +1148,9 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
       }
 
       function toggleCalendar() {
-        if(calendarContainer.is(':visible')) {
-          calendarContainer.fadeOut(params.fadeOutDuration)
-          return false
-        }
-        calendarContainer.show()
+        calendarContainer.toggle()
         if(beforeFirstOpening) {
           calculateCellHeight()
-          setYearLabel()
           beforeFirstOpening = false
         }
         scrollToSelection()
@@ -1302,9 +1213,8 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
 
       function disabledOrNot(date) {
         var disabledWeekendDay = params.disableWeekends && date.isWeekend()
-        var disabledDay = params.disabledDates[date.getOnlyDate()] == true
         var outOfBounds = !calendarRange.hasDate(date)
-        return outOfBounds || disabledWeekendDay || disabledDay ? 'disabled' : ''
+        return outOfBounds || disabledWeekendDay ? 'disabled' : ''
       }
 
       function todayStyle(date) {
@@ -1365,19 +1275,15 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         }
 
         function isInstantSelection(event) {
-          if(params.selectWeek) {
-            return enabledCell(event.target) || isWeekCell(event.target)
-          } else {
-            return isWeekCell(event.target) || isMonthCell(event.target) || event.shiftKey
-          }
+          return isWeekCell(event.target) || isMonthCell(event.target) || event.shiftKey
         }
 
         function instantSelection(event) {
           var elem = event.target
-          if((params.selectWeek && enabledCell(elem)) || isWeekCell(elem)) {
+          if(isWeekCell(elem)) {
             status = Status.NONE
-            var firstDayOfWeek = date($(elem).parent().children('.date'))
-            return instantSelectWeek(firstDayOfWeek)
+            var dayInWeek = date($(elem).siblings('.date'))
+            return new DateRange(dayInWeek, dayInWeek.plusDays(6))
           } else if(isMonthCell(elem)) {
             status = Status.NONE
             var dayInMonth = date($(elem).siblings('.date'))
@@ -1390,16 +1296,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
             }
           }
           return selection
-        }
-
-        function instantSelectWeek(firstDayOfWeek) {
-          var firstDay = firstDayOfWeek
-          var lastDay = firstDayOfWeek.plusDays(6)
-          if(params.disableWeekends) {
-            firstDay = firstDayOfWeek.withWeekday(Date.MONDAY)
-            lastDay = firstDayOfWeek.withWeekday(Date.FRIDAY)
-          }
-          return new DateRange(firstDay, lastDay).and(calendarRange)
         }
       }
 
@@ -1486,9 +1382,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         setStartField(formattedStart)
         setEndField(formattedEnd)
         setRangeLabels()
-        if(params.selectWeek) {
-          calendar.close($('td.selected', container).first())
-        }
         executeCallback()
       }
 

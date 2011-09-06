@@ -32,7 +32,10 @@
         selectToday: false,
         locale: DATE_LOCALE_EN,
         disableWeekends: false,
-        minimumRange:-1,
+        disabledDates: null,
+        minimumRange: -1,
+        selectWeek: false,
+        fadeOutDuration: 0,
         callback: function() {
         }
       }
@@ -78,6 +81,8 @@
         oldSelection = selection.clone()
         var rangeStart = params.firstDate ? Date.parseDate(params.firstDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(-(params.weeksBefore * 7))
         var rangeEnd = params.lastDate ? Date.parseDate(params.lastDate, params.locale.shortDateFormat) : firstWeekdayOfGivenDate.plusDays(params.weeksAfter * 7 + 6)
+        params.disabledDates = params.disabledDates ? parseDisabledDates(params.disabledDates) : {}
+        params.fadeOutDuration = parseInt(params.fadeOutDuration, 10)
         calendarRange = new DateRange(rangeStart, rangeEnd)
         var headerTable = $('<table>').addClass('calendarHeader').append(headerRow())
         bodyTable = $('<table>').addClass('calendarBody').append(calendarBody())
@@ -94,8 +99,18 @@
         yearTitle = $('th.month', headerTable)
         scrollContent.scroll(setYearLabel)
         scrollToSelection()
+        if(!params.isPopup)
+          setYearLabel()
         container.data('calendarRange', selection)
         executeCallback()
+      }
+
+      function parseDisabledDates(dates) {
+        var dateMap = {}
+        $.each(dates.split(' '), function(index, date) {
+          dateMap[Date.parseDate(date, params.locale.shortDateFormat)] = true
+        })
+        return dateMap
       }
 
       function dateBehaviour(isRange) {
@@ -148,6 +163,10 @@
           },
           close: function(cell) {
             toggleCalendar.call(cell)
+          },
+          addDateLabelBehaviour: function(label) {
+            label.addClass('clickable')
+            label.click(toggleCalendar)
           }
         }
         var inlineVersion = {
@@ -155,10 +174,9 @@
           getContainer: function(newContainer) {
             return newContainer
           },
-          addCloseButton: function() {
-          },
-          close: function() {
-          }
+          addCloseButton: $.noop,
+          close: $.noop,
+          addDateLabelBehaviour: $.noop
         }
         return isPopup ? popUpVersion : inlineVersion
       }
@@ -186,12 +204,12 @@
         dateLabelContainer.append('<span class="startDateLabel"></span>')
         calendar.addEndDateLabel(dateLabelContainer)
         container.append(dateLabelContainer)
-        dateLabelContainer.click(toggleCalendar)
+        calendar.addDateLabelBehaviour(dateLabelContainer.children())
       }
 
       function initRangeCalendarEvents(container, bodyTable) {
         $('span.rangeLengthLabel', container).text(Date.daysLabel(selection.days()))
-        bodyTable.addClass('range')
+        bodyTable.addClass(params.selectWeek ? 'weekRange' : 'freeRange')
         bodyTable.mousedown(mouseDown).mouseover(mouseMove).mouseup(mouseUp)
         disableTextSelection(bodyTable.get(0))
         setRangeLabels()
@@ -205,7 +223,7 @@
       }
 
       function setYearLabel() {
-        var scrollContent = this
+        var scrollContent = $('.calendarScrollContent', container).get(0)
         var table = $('table', scrollContent).get(0)
         var rowNumber = parseInt(scrollContent.scrollTop / averageCellHeight)
         var date = table.rows[rowNumber].cells[2].date
@@ -236,9 +254,14 @@
       }
 
       function toggleCalendar() {
-        calendarContainer.toggle()
+        if(calendarContainer.is(':visible')) {
+          calendarContainer.fadeOut(params.fadeOutDuration)
+          return false
+        }
+        calendarContainer.show()
         if(beforeFirstOpening) {
           calculateCellHeight()
+          setYearLabel()
           beforeFirstOpening = false
         }
         scrollToSelection()
@@ -301,8 +324,9 @@
 
       function disabledOrNot(date) {
         var disabledWeekendDay = params.disableWeekends && date.isWeekend()
+        var disabledDay = params.disabledDates[date.getOnlyDate()] == true
         var outOfBounds = !calendarRange.hasDate(date)
-        return outOfBounds || disabledWeekendDay ? 'disabled' : ''
+        return outOfBounds || disabledWeekendDay || disabledDay ? 'disabled' : ''
       }
 
       function todayStyle(date) {
@@ -363,15 +387,19 @@
         }
 
         function isInstantSelection(event) {
-          return isWeekCell(event.target) || isMonthCell(event.target) || event.shiftKey
+          if(params.selectWeek) {
+            return enabledCell(event.target) || isWeekCell(event.target)
+          } else {
+            return isWeekCell(event.target) || isMonthCell(event.target) || event.shiftKey
+          }
         }
 
         function instantSelection(event) {
           var elem = event.target
-          if(isWeekCell(elem)) {
+          if((params.selectWeek && enabledCell(elem)) || isWeekCell(elem)) {
             status = Status.NONE
-            var dayInWeek = date($(elem).siblings('.date'))
-            return new DateRange(dayInWeek, dayInWeek.plusDays(6))
+            var firstDayOfWeek = date($(elem).parent().children('.date'))
+            return instantSelectWeek(firstDayOfWeek)
           } else if(isMonthCell(elem)) {
             status = Status.NONE
             var dayInMonth = date($(elem).siblings('.date'))
@@ -384,6 +412,16 @@
             }
           }
           return selection
+        }
+
+        function instantSelectWeek(firstDayOfWeek) {
+          var firstDay = firstDayOfWeek
+          var lastDay = firstDayOfWeek.plusDays(6)
+          if(params.disableWeekends) {
+            firstDay = firstDayOfWeek.withWeekday(Date.MONDAY)
+            lastDay = firstDayOfWeek.withWeekday(Date.FRIDAY)
+          }
+          return new DateRange(firstDay, lastDay).and(calendarRange)
         }
       }
 
@@ -470,6 +508,9 @@
         setStartField(formattedStart)
         setEndField(formattedEnd)
         setRangeLabels()
+        if(params.selectWeek) {
+          calendar.close($('td.selected', container).first())
+        }
         executeCallback()
       }
 

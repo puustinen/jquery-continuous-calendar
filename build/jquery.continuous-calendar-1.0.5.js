@@ -460,10 +460,6 @@ Date.formatCodeToRegex = function(character, currentGroup) {
       return {g:0,
         c:null,
         s:"[+-]\\d{1,5}"}
-    case ".":
-      return {g:0,
-        c:null,
-        s:"\\."}
     default:
       return {g:0,
         c:null,
@@ -1141,10 +1137,6 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
           },
           close: function(cell) {
             toggleCalendar.call(cell)
-          },
-          addDateLabelBehaviour: function(label) {
-            label.addClass('clickable')
-            label.click(toggleCalendar)
           }
         }
         var inlineVersion = {
@@ -1152,9 +1144,10 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
           getContainer: function(newContainer) {
             return newContainer
           },
-          addCloseButton: $.noop,
-          close: $.noop,
-          addDateLabelBehaviour: $.noop
+          addCloseButton: function() {
+          },
+          close: function() {
+          }
         }
         return isPopup ? popUpVersion : inlineVersion
       }
@@ -1182,7 +1175,7 @@ DateRange.rangeWithMinimumSize = function(oldRange, minimumSize, disableWeekends
         dateLabelContainer.append('<span class="startDateLabel"></span>')
         calendar.addEndDateLabel(dateLabelContainer)
         container.append(dateLabelContainer)
-        calendar.addDateLabelBehaviour(dateLabelContainer.children())
+        dateLabelContainer.click(toggleCalendar)
       }
 
       function initRangeCalendarEvents(container, bodyTable) {

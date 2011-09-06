@@ -25,6 +25,7 @@ Date.HOUR = 60 * Date.MINUTE
 Date.DAY = 24 * Date.HOUR
 Date.WEEK = 7 * Date.DAY
 Date.MONDAY = 1
+Date.FRIDAY = 5
 Date.SUNDAY = 0
 Date.NOW = new Date()
 Date.getDaysInMonth = function(year, month) {
@@ -199,6 +200,15 @@ Date.prototype.distanceInDays = function(date) {
   var last = parseInt(date.getTime() / Date.DAY, 10)
   return (last - first)
 }
+
+Date.prototype.withWeekday = function(weekday) {
+  return this.plusDays(weekday - this.getDay())
+}
+
+Date.prototype.getOnlyDate = function() {
+  return new Date(this.getFullYear(), this.getMonth(), this.getDate())
+}
+
 
 /*
  * Copyright (C) 2004 Baron Schwartz <baron at sequent dot org>
@@ -450,6 +460,10 @@ Date.formatCodeToRegex = function(character, currentGroup) {
       return {g:0,
         c:null,
         s:"[+-]\\d{1,5}"}
+    case ".":
+      return {g:0,
+        c:null,
+        s:"\\."}
     default:
       return {g:0,
         c:null,
